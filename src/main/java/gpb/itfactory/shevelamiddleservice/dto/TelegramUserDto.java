@@ -1,4 +1,4 @@
-package gpb.itfactory.shevelamiddleservice.entity;
+package gpb.itfactory.shevelamiddleservice.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
-public class Account {
-    private String accountName;
+public class TelegramUserDto {
+    public String username;
+    private Long tgUserId;
 }

@@ -9,5 +9,4 @@ public class ShevelaMiddleServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(ShevelaMiddleServiceApplication.class, args);
     }
-
 }
