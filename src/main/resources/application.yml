@@ -1,0 +1,6 @@
+server:
+  port: 8081
+
+backend:
+  service:
+    url: http://localhost:8082/users
