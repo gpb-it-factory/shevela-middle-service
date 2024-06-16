@@ -7,25 +7,25 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/middle")
-public class Controller {
+@RequestMapping("/v2/middle")
+public class UserController {
 
     private final UserService userService;
 
-    public Controller(UserService userService) {
+    public UserController(UserService userService) {
         this.userService = userService;
     }
 
     @PostMapping("/users")
-    public String createUser(@RequestBody TelegramUserDto telegramUserDto) {
+    public String createUserV2(@RequestBody TelegramUserDto telegramUserDto) {
         log.info("Receive request from TelegramBot: < register new user >");
-        return userService.createUser(telegramUserDto);
+        return userService.createUserV2(telegramUserDto);
     }
 
     @GetMapping("/users/{tgUserId}")
-    public String findUserByTgUserId(@PathVariable Long tgUserId) {
+    public String getUserByTelegramIdV2(@PathVariable Long tgUserId) {
         log.info("Receive request from TelegramBot: < find user by tgUserId >");
-        return userService.findUserByTgId(tgUserId);
+        return userService.getUserByTelegramIdV2(tgUserId);
     }
 
 }

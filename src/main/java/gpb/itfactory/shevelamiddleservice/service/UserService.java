@@ -24,11 +24,17 @@ public class UserService {
         this.restTemplate = restTemplate;
     }
 
-    public String createUser(TelegramUserDto telegramUserDto) {
+    public String createUserV2(TelegramUserDto telegramUserDto) {
         log.info("Create request to BackendService: < register new user >");
         try {
-            ResponseEntity<ErrorDto> responseEntity = restTemplate.postForEntity(URL, telegramUserDto, ErrorDto.class);
-            return buildResponseToCreateUser(responseEntity, telegramUserDto);
+            String getUserByTelegramIdV2Response = getUserByTelegramIdV2(telegramUserDto.getTgUserId());
+            if (getUserByTelegramIdV2Response.equals("User is registered in the MiniBank")) {
+                return "User already exists in the MiniBank";
+            } else if (getUserByTelegramIdV2Response.contains("User is not registered in the MiniBank")) {
+                ResponseEntity<ErrorDto> responseEntity = restTemplate.postForEntity(URL, telegramUserDto, ErrorDto.class);
+                return buildResponseToCreateUserV2(responseEntity, telegramUserDto);
+            }
+            return getUserByTelegramIdV2Response;
         } catch (RestClientException exception) {
             log.error(exception.toString());
         }
@@ -36,21 +42,21 @@ public class UserService {
         return "Sorry, server connection problem";
     }
 
-    private String buildResponseToCreateUser(ResponseEntity<ErrorDto> responseEntity, TelegramUserDto telegramUserDto) {
+    private String buildResponseToCreateUserV2(ResponseEntity<ErrorDto> responseEntity, TelegramUserDto telegramUserDto) {
         if (responseEntity.getStatusCode() == HttpStatus.NO_CONTENT) {
             log.info("Receive response from BackendService: < register new user > - HttpStatus.204");
             return "User %s has been successfully registered in the MiniBank".formatted(telegramUserDto.getUsername());
         }
         ErrorDto errorDto = responseEntity.getBody();
         log.info("Receive response from BackendService: < register new user > - Error: %s".formatted(errorDto.toString()));
-        return "Error Message: %s. Type: %s".formatted(errorDto.getMessage(), errorDto.getType());
+        return "Error << Unknown user registration server error >>";
     }
 
-    public String findUserByTgId(long tgUserId) {
+    public String getUserByTelegramIdV2(long tgUserId) {
         log.info("Create request to BackendService: < find user by tgUserId >");
         try {
             ResponseEntity<String> responseEntity = restTemplate.getForEntity(URL+ "/" + tgUserId, String.class);
-            return buildResponseToFindUserByTgId(responseEntity);
+            return buildResponseToGetUserByTelegramIdV2(responseEntity);
         } catch (JsonMappingException e) {
             log.error(e.toString());
         } catch (RestClientException | JsonProcessingException exception) {
@@ -60,7 +66,7 @@ public class UserService {
         return "Sorry, server error or connection problem";
     }
 
-    private String buildResponseToFindUserByTgId(ResponseEntity<String> responseEntity) throws JsonProcessingException {
+    private String buildResponseToGetUserByTelegramIdV2(ResponseEntity<String> responseEntity) throws JsonProcessingException {
         if (responseEntity.getStatusCode() == HttpStatus.OK) {
             log.info("Receive response from BackendService: < find user by tgUserId > - User is registered with userId = %s"
                     .formatted(responseEntity.getBody()));
@@ -69,6 +75,9 @@ public class UserService {
         ObjectMapper mapper = new ObjectMapper();
         ErrorDto errorDto = mapper.readValue(responseEntity.getBody(), ErrorDto.class);
         log.info("Receive response from BackendService: < find user by tgUserId > - Error %s".formatted(errorDto.toString()));
-        return "Error Message: %s. Type: %s".formatted(errorDto.getMessage(), errorDto.getType());
+        if (errorDto.getMessage().contains("User is not registered in the MiniBank")) {
+            return "Error << User is not registered in the MiniBank >>";
+        }
+        return "Error << Unknown server error when verifying user registration >>";
     }
 }
