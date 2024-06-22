@@ -1,15 +1,12 @@
 package gpb.itfactory.shevelamiddleservice.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import gpb.itfactory.shevelamiddleservice.dto.ErrorDto;
 import gpb.itfactory.shevelamiddleservice.dto.TelegramUserDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -17,67 +14,51 @@ import org.springframework.web.client.RestTemplate;
 @Component
 public class UserService {
 
-    @Value("${backend.service.url}")
-    String URL;
+    private final String BASE_URL;
     private final RestTemplate restTemplate;
-    public UserService(RestTemplate restTemplate) {
+
+    public UserService(RestTemplate restTemplate, @Value("${backend.service.url}") String BASE_URL) {
         this.restTemplate = restTemplate;
+        this.BASE_URL = BASE_URL;
     }
 
-    public String createUserV2(TelegramUserDto telegramUserDto) {
+    public ResponseEntity<String> createUserV2(TelegramUserDto telegramUserDto) {
         log.info("Create request to BackendService: < register new user >");
         try {
-            String getUserByTelegramIdV2Response = getUserByTelegramIdV2(telegramUserDto.getTgUserId());
-            if (getUserByTelegramIdV2Response.equals("User is registered in the MiniBank")) {
-                return "User already exists in the MiniBank";
-            } else if (getUserByTelegramIdV2Response.contains("User is not registered in the MiniBank")) {
-                ResponseEntity<ErrorDto> responseEntity = restTemplate.postForEntity(URL, telegramUserDto, ErrorDto.class);
-                return buildResponseToCreateUserV2(responseEntity, telegramUserDto);
+            ResponseEntity<String> getUserByTelegramIdV2Response = getUserByTelegramIdV2(telegramUserDto.getTgUserId());
+            if (getUserByTelegramIdV2Response.getStatusCode() == HttpStatus.NOT_FOUND) {
+                ResponseEntity<String> responseEntity = restTemplate.postForEntity(
+                        BASE_URL + "/users", telegramUserDto, String.class);
+                log.info("Receive response from BackendService: < register new user > - HttpStatus.204");
+                return ResponseEntity.status(responseEntity.getStatusCode())
+                        .body(("{\"message\": \"User %s has been successfully registered in the MiniBank\"}")
+                                .formatted(telegramUserDto.getUsername()));
             }
             return getUserByTelegramIdV2Response;
         } catch (RestClientException exception) {
-            log.error(exception.toString());
+            log.error("RestClientException exception: " + exception);
+            throw exception;
         }
-        log.error("BackendService connection problems");
-        return "Sorry, server connection problem";
     }
 
-    private String buildResponseToCreateUserV2(ResponseEntity<ErrorDto> responseEntity, TelegramUserDto telegramUserDto) {
-        if (responseEntity.getStatusCode() == HttpStatus.NO_CONTENT) {
-            log.info("Receive response from BackendService: < register new user > - HttpStatus.204");
-            return "User %s has been successfully registered in the MiniBank".formatted(telegramUserDto.getUsername());
-        }
-        ErrorDto errorDto = responseEntity.getBody();
-        log.info("Receive response from BackendService: < register new user > - Error: %s".formatted(errorDto.toString()));
-        return "Error << Unknown user registration server error >>";
-    }
-
-    public String getUserByTelegramIdV2(long tgUserId) {
-        log.info("Create request to BackendService: < find user by tgUserId >");
+    public ResponseEntity<String> getUserByTelegramIdV2(long tgUserId) {
+        log.info("Create request to BackendService: < get user by tgUserId >");
         try {
-            ResponseEntity<String> responseEntity = restTemplate.getForEntity(URL+ "/" + tgUserId, String.class);
-            return buildResponseToGetUserByTelegramIdV2(responseEntity);
-        } catch (JsonMappingException e) {
-            log.error(e.toString());
-        } catch (RestClientException | JsonProcessingException exception) {
-            log.error(exception.toString());
-        }
-        log.error("BackendService connection problems");
-        return "Sorry, server error or connection problem";
-    }
+            ResponseEntity<String> responseEntity = restTemplate.getForEntity(
+                    BASE_URL + "/users/" + tgUserId, String.class);
+            log.info(("Receive response from BackendService: < get user by tgUserId > - " +
+                    "User is registered with userId = %s").formatted(responseEntity.getBody()));
+            return ResponseEntity.status(200).body("{\"message\": \"User is registered in the MiniBank\"}");
+        } catch (HttpClientErrorException exception) {
 
-    private String buildResponseToGetUserByTelegramIdV2(ResponseEntity<String> responseEntity) throws JsonProcessingException {
-        if (responseEntity.getStatusCode() == HttpStatus.OK) {
-            log.info("Receive response from BackendService: < find user by tgUserId > - User is registered with userId = %s"
-                    .formatted(responseEntity.getBody()));
-            return "User is registered in the MiniBank";
+            System.out.println(exception.toString());
+
+            log.info("Receive response from BackendService: < get user by tgUserId >  %s"
+                    .formatted(exception.toString()));
+            return ResponseEntity.status(exception.getStatusCode()).body(exception.getResponseBodyAs(String.class));
+        } catch (RestClientException exception) {
+            log.error("RestClientException exception: " + exception);
+            throw exception;
         }
-        ObjectMapper mapper = new ObjectMapper();
-        ErrorDto errorDto = mapper.readValue(responseEntity.getBody(), ErrorDto.class);
-        log.info("Receive response from BackendService: < find user by tgUserId > - Error %s".formatted(errorDto.toString()));
-        if (errorDto.getMessage().contains("User is not registered in the MiniBank")) {
-            return "Error << User is not registered in the MiniBank >>";
-        }
-        return "Error << Unknown server error when verifying user registration >>";
     }
 }
