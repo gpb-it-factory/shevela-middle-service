@@ -2,7 +2,7 @@ name: Java CI build&test with Gradle
 
 on:
   pull_request:
-    types: [opened, edited, reopened]
+    types: [opened, edited, reopened, synchronize]
     branches: [ "trunk" ]
     
 jobs:
