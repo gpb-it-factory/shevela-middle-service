@@ -63,6 +63,13 @@ public class AccountMock {
                         .withFault(Fault.CONNECTION_RESET_BY_PEER)));
     }
 
+    public static void setupGetUserAccountsV2ResponseIfAccountIsNotPresent(WireMockServer mockService){
+        mockService.stubFor(WireMock.get(WireMock.urlEqualTo("/v2/users/" + USER_ID + "/accounts"))
+                .willReturn(WireMock.aResponse()
+                        .withStatus(HttpStatus.NOT_FOUND.value())
+                        .withBody(createErrorJSON("User does not have account", "getUserAccountsError", "201"))));
+    }
+
     private static String createAccountJSON() {
         return """
                 [
